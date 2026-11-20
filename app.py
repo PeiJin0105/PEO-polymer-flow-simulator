@@ -38,7 +38,7 @@ with st.sidebar:
            'yield':st.number_input('Yield stress (Pa)',0.,1000.,key='yield_stress')}
     else:
         p={'eta0':st.number_input('η₀ (Pa·s)',.0001,10000.,key='eta0'),
-           'eta_inf':st.number_input('η∞ (Pa·s)',0.,10000.,key='eta_inf'),
+           'eta_inf':st.number_input('η∞ (Pa·s)',0.,10000.,step=0.001,format='%.4f',key='eta_inf'),
            'lam':st.number_input('λ (s)',.00001,10000.,key='lam'),
            'n':st.slider('n',.05,1.,key='cy_n'),
            'a':st.slider('a',.2,10.,key='a')}
@@ -66,6 +66,45 @@ with pages[0]:
     fig=go.Figure(go.Scatter(x=rates,y=eta,name=model,mode='lines'))
     fig.update_layout(xaxis_type='log',yaxis_type='log',xaxis_title='Shear rate (s⁻¹)',yaxis_title='Apparent viscosity (Pa·s)')
     chart(fig);figure_download(fig,'rheology')
+    st.download_button(
+        'Download current rheology CSV',
+        pd.DataFrame({'shear_rate_s_inv':rates,'apparent_viscosity_Pa_s':eta}).to_csv(index=False).encode('utf-8'),
+        file_name='rheology_current.csv',mime='text/csv',key='download_current_rheology')
+    if model == 'Carreau-Yasuda':
+        st.divider()
+        st.subheader('Compare flow behavior indices (Experiment 1)')
+        st.caption('Change only n; η₀, η∞, λ and a remain fixed at the sidebar values. Synthetic model predictions, not measured PEO data.')
+        selected_n=st.multiselect('Select n values for comparison',
+                                  options=[1.0,0.8,0.6,0.4],default=[1.0,0.8,0.6,0.4],
+                                  key='comparison_n_values')
+        if selected_n:
+            comparison=go.Figure()
+            export={'shear_rate_s_inv':rates}
+            for n_value in selected_n:
+                compare_p={**p,'n':float(n_value)}
+                compare_eta=viscosity(rates,'Carreau-Yasuda',compare_p)
+                comparison.add_trace(go.Scatter(x=rates,y=compare_eta,mode='lines',name=f'n = {n_value:.1f}'))
+                export[f'viscosity_n_{n_value:.1f}_Pa_s']=compare_eta
+            comparison.update_layout(xaxis_type='log',yaxis_type='log',
+                                     xaxis_title='Shear rate (s⁻¹)',
+                                     yaxis_title='Apparent viscosity (Pa·s)',
+                                     title='Effect of flow behavior index')
+            chart(comparison)
+            st.caption('Use the camera icon in the plot toolbar to export the comparison as PNG.')
+            st.download_button('Download comparison CSV',
+                               pd.DataFrame(export).to_csv(index=False).encode('utf-8'),
+                               file_name='experiment1_n_comparison.csv',mime='text/csv',
+                               key='download_comparison_rheology')
+            record={'constitutive_model':'Carreau-Yasuda','eta0_Pa_s':p['eta0'],
+                    'eta_inf_Pa_s':p['eta_inf'],'lambda_s':p['lam'],'a':p['a'],
+                    'n_values':selected_n,'data_status':'synthetic model predictions',
+                    'shear_rate_min_s_inv':float(rates.min()),
+                    'shear_rate_max_s_inv':float(rates.max()),'number_of_points':len(rates)}
+            st.download_button('Download comparison parameters (JSON)',
+                               json.dumps(record,indent=2),file_name='experiment1_parameters.json',
+                               mime='application/json',key='download_comparison_parameters')
+        else:
+            st.info('Select at least one n value to display the comparison.')
     st.divider()
     st.subheader('Optional experimental rheometry CSV fitting')
     st.info('Upload measured shear-rate and viscosity columns (positive values, SI units). No PEO measurements are supplied with this tool. Fitting is exploratory and requires independent validation.')
