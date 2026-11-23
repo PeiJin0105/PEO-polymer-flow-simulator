@@ -168,7 +168,7 @@ with pages[1]:
     csv_download(pd.DataFrame({'r_m':z['r'],'velocity_m_s':z['v'],'shear_rate_s_inv':z['gamma'],'shear_stress_Pa':z['tau']}),'velocity_profile.csv')
 with pages[2]:
     st.subheader('Specified flow rate → required pressure drop')
-    target=st.number_input('Target flow rate (mL/s)',.0001,10000.,key='target_ml')
+    target=st.number_input('Target flow rate (mL/s)',0.0001,10000.,key='target_ml')
     if st.button('Calculate required pressure drop'):
         try:
             required=pressure_for_flow(model,p,target*1e-6,R,L)
